@@ -1,5 +1,14 @@
 # Experimental Evaluation of ESP32-C5 Operation on a 5745 MHz / 10 MHz / 802.11an WLAN
 
+> **Update — FE 40 MHz clock experiment (current `src/main.c`):** A previously unknown step was found in the
+> TX-enabled ITS-G5 firmware (`reference/its-g5-receiver-firmware_txenabled/main/main.c`):
+> `modem_syscon_ll_enable_fe_40m_clock(&MODEM_SYSCON, 1)` called immediately before `esp_wifi_init()`.
+> The hypothesis is that this front-end clock is needed for **TX** in the 11p (10 MHz) PHY mode, which would
+> explain why auth frames never reached the AP below. `src/main.c` is now a STA demo that enables this clock,
+> applies the known 11p sequence while idle, connects to the open AP (auto-retry, re-applying the hack after
+> each disconnect), logs sniffer counters every second, and pings the DHCP gateway after `GOT_IP`.
+> The conclusions in the report below predate this experiment.
+
 ## Abstract
 
 This project documents a structured investigation into whether the ESP32-C5 can be coerced into operating on a non-standard 5 GHz Wi-Fi channel configuration: 5745 MHz center frequency, 10 MHz channel width, and 802.11a/n signaling. The central research question was whether hidden PHY-layer functions could be used not only to passively receive traffic from such a network, but also to allow the ESP32-C5 to associate as a normal Wi-Fi station with an unsecured access point configured for 5745/10/an. The experiments show that passive reception is reproducibly achievable using undocumented PHY calls derived from an 802.11p-oriented sniffing path, but managed station association is not. The evidence strongly suggests that the stock ESP32-C5 non-AP Wi-Fi stack is architecturally constrained to supported client bandwidth modes, documented by Espressif as 20 MHz-only for non-AP operation, and cannot be extended to 10 MHz client operation through application-level sequencing alone.[cite:530][cite:693]

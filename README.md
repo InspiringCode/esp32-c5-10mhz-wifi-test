@@ -1,13 +1,18 @@
 # Experimental Evaluation of ESP32-C5 Operation on a 5745 MHz / 10 MHz / 802.11an WLAN
 
-> **Update — FE 40 MHz clock experiment (current `src/main.c`):** A previously unknown step was found in the
-> TX-enabled ITS-G5 firmware (`reference/its-g5-receiver-firmware_txenabled/main/main.c`):
-> `modem_syscon_ll_enable_fe_40m_clock(&MODEM_SYSCON, 1)` called immediately before `esp_wifi_init()`.
-> The hypothesis is that this front-end clock is needed for **TX** in the 11p (10 MHz) PHY mode, which would
-> explain why auth frames never reached the AP below. `src/main.c` is now a STA demo that enables this clock,
-> applies the known 11p sequence while idle, connects to the open AP (auto-retry, re-applying the hack after
-> each disconnect), logs sniffer counters every second, and pings the DHCP gateway after `GOT_IP`.
-> The conclusions in the report below predate this experiment.
+> **Update — working 10 MHz STA demo (current `src/main.c`):** The ESP32-C5 **does** associate at 10 MHz
+> once `modem_syscon_ll_enable_fe_40m_clock(&MODEM_SYSCON, 1)` is called immediately before
+> `esp_wifi_init()` (found in the TX-enabled ITS-G5 firmware,
+> `reference/its-g5-receiver-firmware_txenabled/main/main.c`). This front-end clock is what was missing for
+> **TX** in the 11p (10 MHz) PHY mode. With it, the demo connects to the open AP, gets a DHCP lease, and
+> pings the gateway successfully.
+>
+> The current demo targets **5730 MHz** (= channel 146, which is not a valid 20 MHz ESP channel). The driver
+> retunes itself during connect via `phy_change_channel()`, so it is told a nearby valid channel (144 /
+> 5720 MHz) and a linker `--wrap` hook (`src/CMakeLists.txt`) redirects that retune to the real 5730 MHz
+> center. After connecting it pings the gateway, performs an HTTP GET to `http://news.oe1xqu.hamip.at`
+> (prints the status and first 1000 chars), then pings the gateway once per second, resuming reconnection if
+> the link drops. The conclusions in the report below predate these experiments.
 
 ## Abstract
 
